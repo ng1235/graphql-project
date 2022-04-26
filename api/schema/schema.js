@@ -6,9 +6,25 @@ import {
   GraphQLList,
   GraphQLInt,
 } from 'graphql';
-import { users, entries, tags } from './test-data.js'
-import { getTagIds } from '../../utils/getTagId.js'
-import { getUsers } from './queries.js'
+
+import { 
+  getAllUsers, 
+  getUser, 
+  getUserEntries,
+  getAllEntries,
+  getTag,
+  getAllTags,
+  getEntryByEntryId,
+  getEntryTags,
+  getEntriesByTagId,
+} from './queries.js'
+
+import {
+  addEntry,
+  deleteEntry,
+  addTagsToEntry
+} from './mutations.js'
+
 
 const UserType = new GraphQLObjectType({
   name: 'User',
@@ -18,8 +34,9 @@ const UserType = new GraphQLObjectType({
     name: { type: new GraphQLNonNull(GraphQLString) },
     entries: {
       type: new GraphQLList(EntryType),
-      resolve: (user) => {
-        return entries.filter(entry => entry.userId === user.id);
+      resolve: async (user) => {
+        const userEntries = await getUserEntries(user.id);
+        return userEntries;
       }
     }
   })
@@ -31,11 +48,13 @@ const EntryType = new GraphQLObjectType({
   fields: () => ({
     header: { type: new GraphQLNonNull(GraphQLString) },
     content: { type: new GraphQLNonNull(GraphQLString) },
-    userId: { type: new GraphQLNonNull(GraphQLInt) },
+    userid: { type: new GraphQLNonNull(GraphQLInt) },
+    id: { type: new GraphQLNonNull(GraphQLInt) },
     tags: {
       type: new GraphQLList(TagType),
-      resolve: (entry) => {
-        return tags.filter((tag) => tag.entryId.includes(entry.id));
+      resolve: async (entry) => {
+        const entryTags = await getEntryTags(entry.id)
+        return entryTags;
       }
     } 
   })
@@ -45,18 +64,13 @@ const TagType = new GraphQLObjectType({
   name: 'Tag',
   description: 'Represents a tag associated with an entry.',
   fields: () => ({
-    tagName: { type: new GraphQLNonNull(GraphQLString) },
+    tagname: { type: new GraphQLNonNull(GraphQLString) },
     id: { type: new GraphQLNonNull(GraphQLInt) },
-    userId: { 
-      type: new GraphQLList(UserType),
-      resolve: (tag) => {
-        return users.filter((user) => tag.userId.includes(user.id))
-      }
-    },
     entries: {
       type: new GraphQLList(EntryType),
-      resolve: (tag) => {
-        return entries.filter((entry) => entry.tagsId.includes(tag.id));
+      resolve: async (tag) => {
+        const entries = await getEntriesByTagId(tag.id);
+        return entries;
       }
     }
   })
@@ -70,23 +84,19 @@ const RootMutationType = new GraphQLObjectType({
       type: EntryType,
       description: 'Add an entry',
       args: {
-        userId: { type: new GraphQLNonNull(GraphQLInt) },
+        userid: { type: new GraphQLNonNull(GraphQLInt) },
         header: { type: new GraphQLNonNull(GraphQLString) },
         content: { type: new GraphQLNonNull(GraphQLString) },
         tags: { type: GraphQLString }
       },
-      resolve: (parent, args) => {
-        const { userId, header, content, tags } = args
-        const entryId = entries.length + 1 
-        const entry = {
-          id: entryId,
-          header, 
-          content, 
-          tagsId: getTagIds(tags, userId, entryId),
-          userId
-        }
-        entries.push(entry);
-        return entry;
+      resolve: async (parent, args) => {
+        let { userid, header, content, tags } = args;
+        const newEntry = await addEntry(header, content, userid);
+
+        console.log(newEntry)
+        await addTagsToEntry(tags, newEntry.id);
+
+        return getEntryByEntryId(newEntry.id);
       }
     },
     editEntry: {
@@ -99,17 +109,7 @@ const RootMutationType = new GraphQLObjectType({
         tags: { type: GraphQLString }
       },
       resolve: (parent, args) => {
-        const { id, header, content, tags } = args 
-        const index = entries.findIndex((entry) => entry.id === id)
-        const updatedEntry = { 
-          id,
-          header,
-          content,
-          tags,
-          userId: entries[index].id
-        }
-        entries[index] = updatedEntry;
-        return updatedEntry
+        // TODO
       }
     },
     deleteEntry: {
@@ -118,11 +118,7 @@ const RootMutationType = new GraphQLObjectType({
       args: {
         id: { type: new GraphQLNonNull(GraphQLInt) },
       },
-      resolve: (parent, args) => {
-        let entry = entries.find((entry) => entry.id === args.id);
-        entries.filter((entry) => entry.id !== args.id)
-        return entry;
-      }
+      resolve: (parent, args) => deleteEntry(args.id)
     }
   })
 })
@@ -130,24 +126,17 @@ const RootMutationType = new GraphQLObjectType({
 const RootQueryType = new GraphQLObjectType({
   name: 'Query',
   fields: {
-    currentTime: {
-      type: GraphQLString,
-      resolve: () => {
-        const isoString = new Date().toISOString();
-        return isoString.slice(11, 19);
-      },
-    },
     user: {
       type: UserType,
       description: "A user of this application",
       args: {
         id: { type: new GraphQLNonNull(GraphQLInt) }
       },
-      resolve: (parent, args) => users.find(user => user.id === args.id)
+      resolve: async (parent, args) => await getUser(args.id)
     },
     users: {
       type: new GraphQLList(UserType),
-      resolve: async () => await getUsers()
+      resolve: async () => await getAllUsers()
     },
     entry: {
       type: EntryType,
@@ -155,12 +144,12 @@ const RootQueryType = new GraphQLObjectType({
       args: {
         id: { type: new GraphQLNonNull(GraphQLInt) },
       },
-      resolve: (parent, args) => entries.find((entry) => entry.id === args.id)
+      resolve: async (parent, args) => await getEntryByEntryId(args.id)
     },
     entries: {
       type: new GraphQLList(EntryType),
       description: "A collection of entries input by users.",
-      resolve: () => entries
+      resolve: async () => await getAllEntries()
     },
     tag: {
       type: TagType,
@@ -168,12 +157,12 @@ const RootQueryType = new GraphQLObjectType({
       args: {
         id: { type: GraphQLInt }
       },
-      resolve: (parent, args) => tags.find(tag => tag.id === args.id)
+      resolve: async (parent, args) => await getTag(args.id)
     },
     tags: {
       type: new GraphQLList(TagType),
       description: "A collection of all tags.",
-      resolve: () => tags
+      resolve: async () => await getAllTags()
     }
   },
 });
