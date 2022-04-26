@@ -8,6 +8,7 @@ import {
 } from 'graphql';
 import { users, entries, tags } from './test-data.js'
 import { getTagIds } from '../../utils/getTagId.js'
+import { getUsers } from './queries.js'
 
 const UserType = new GraphQLObjectType({
   name: 'User',
@@ -146,7 +147,7 @@ const RootQueryType = new GraphQLObjectType({
     },
     users: {
       type: new GraphQLList(UserType),
-      resolve: () => users
+      resolve: async () => await getUsers()
     },
     entry: {
       type: EntryType,
