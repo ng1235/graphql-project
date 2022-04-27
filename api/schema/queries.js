@@ -75,7 +75,6 @@ export const getEntryByEntryId = async (id) => {
 
   if (response) {
     const entry = response.rows[0];
-    console.log(entry);
     return entry;
   }
 }
@@ -104,7 +103,7 @@ export const getEntriesByTagId = async (id) => {
   if (response) {
     response.rows.forEach((row) => {
       
-      let entry = getEntry(row.entryid);
+      let entry = getEntryByEntryId(row.entryid);
 
       entries.push(entry);
     });

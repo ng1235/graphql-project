@@ -22,7 +22,9 @@ import {
 import {
   addEntry,
   deleteEntry,
-  addTagsToEntry
+  addTagsToEntry,
+  editEntry,
+  editEntryTags,
 } from './mutations.js'
 
 
@@ -93,7 +95,6 @@ const RootMutationType = new GraphQLObjectType({
         let { userid, header, content, tags } = args;
         const newEntry = await addEntry(header, content, userid);
 
-        console.log(newEntry)
         await addTagsToEntry(tags, newEntry.id);
 
         return getEntryByEntryId(newEntry.id);
@@ -103,13 +104,18 @@ const RootMutationType = new GraphQLObjectType({
       type: EntryType,
       description: 'Edit an existing entry. Returns the edited entry.',
       args: {
-        id: { type: new GraphQLNonNull(GraphQLInt) },
+        entryid: { type: new GraphQLNonNull(GraphQLInt) },
         header: { type: new GraphQLNonNull(GraphQLString) },
         content: { type: new GraphQLNonNull(GraphQLString) },
         tags: { type: GraphQLString }
       },
-      resolve: (parent, args) => {
-        // TODO
+      resolve: async (parent, args) => {
+        let { entryid, header, content, tags } = args;
+        const editedEntry = await editEntry(header, content, entryid);
+        editEntryTags(tags, entryid);
+
+        return editedEntry;
+
       }
     },
     deleteEntry: {

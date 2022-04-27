@@ -15,9 +15,16 @@ export const addEntry = async (header, content, userId) => {
   return newEntryData;
 }
 
-export const editEntry = async () => {
+export const editEntry = async (header, content, entryid) => {
+  const editEntryQuery = "UPDATE ENTRIES SET header = $1, content = $2 WHERE id = $3 RETURNING id";
 
+  const editedEntry = await dbQuery(editEntryQuery, header, content, entryid);
 
+  let editedEntryId = editedEntry.rows[0].id;
+
+  const editedEntryData = await getEntryByEntryId(editedEntryId);
+
+  return editedEntryData
 }
 
 export const deleteEntry = async (entryId) => {
@@ -35,10 +42,10 @@ export const addTag = async (tagName) => {
 
   const response = await dbQuery(newTagQuery, tagName);
 
-  return response;
+  return response.rows[0];
 }
 
-export const addTaggedEntry = async (entryId, tagId) => {
+const addTaggedEntry = async (entryId, tagId) => {
   const query = "INSERT INTO ENTRIES_TAGS (entryid, tagid) VALUES ($1, $2);";
 
   const result = await dbQuery(query, entryId, tagId);
@@ -46,10 +53,16 @@ export const addTaggedEntry = async (entryId, tagId) => {
   return result;
 }
 
+const deleteTaggedEntries = async (entryId) => {
+  const query = "DELETE FROM ENTRIES_TAGS WHERE entryid = $1";
+
+  const result = await dbQuery(query, entryId);
+
+  return result;
+}
+
 export const addTagsToEntry = async (tagNames, entryId) => {
   tagNames = parseTagNames(tagNames);
-
-  console.log(`TagNames: ${tagNames}`);
 
   tagNames.forEach(async (tagName) => {
     const tagExists = await tagAlreadyExists(tagName);
@@ -60,7 +73,10 @@ export const addTagsToEntry = async (tagNames, entryId) => {
       const newTag = await addTag(tagName);
       addTaggedEntry(entryId, newTag.id);
     }
-  })
+  });
+}
 
-
+export const editEntryTags = async (tagNames, entryId) => {
+  deleteTaggedEntries(entryId)
+  addTagsToEntry(tagNames, entryId);
 }
