@@ -8,7 +8,13 @@ const logQuery = (statement, parameters) => {
 }
 
 export const dbQuery = async (statement, ...parameters) => {
-  const client = new Client({ database: "graphql_project" });
+  const client = new Client({ 
+    host: "db",
+    database: "graphql_postgresql",
+    port: 5432,
+    user: 'postgres',
+    password: '123456'     
+  });
 
   await client.connect();
   logQuery(statement, parameters);

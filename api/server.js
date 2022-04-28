@@ -16,7 +16,7 @@ async function main() {
   
   
   server.listen(port, () => {
-    console.log(`Server URL: http://localhost:${port}/`);
+    console.log(`Server running!`);
   })
 
 }
