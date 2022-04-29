@@ -9,4 +9,4 @@ This is a GraphQL and PostgreSQL project on Docker. To run it:
 
 4. Optional: paste in the test data in `api/schema/test-data.sql` and press enter.
 
-5. The project can be accessed on port 8002 (i.e. localhost:8002)
+5. After this, project and data can be accessed via the GraphiQL interface on port 8002 (i.e. localhost:8002)
