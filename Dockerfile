@@ -4,4 +4,4 @@ COPY . .
 
 RUN npm install
 
-CMD node api/server.js
+CMD ["node", "api/server.js"]
